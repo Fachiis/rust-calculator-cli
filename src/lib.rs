@@ -71,8 +71,6 @@ fn to_rpn(tokens: &[Token]) -> Result<Vec<Token>, String> {
         output.push(Token::Operator(op));
     }
 
-    println!("Converted to RPN: {:?}", output);
-
     Ok(output)
 }
 
