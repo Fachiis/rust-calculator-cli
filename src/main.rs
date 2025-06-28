@@ -41,7 +41,7 @@ fn main() {
                             }
                         }
                         Err(e) => {
-                            println!("Error parsing expression: {}", e);
+                            eprintln!("{}", e);
                             continue;
                         }
                     }

@@ -1,10 +1,40 @@
+use std::fmt::{Debug, Display, Formatter};
+
 #[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
 pub enum Token {
     Number(f64),
     Operator(char),
 }
 
-pub fn parse_expression(expression: Vec<&str>) -> Result<Vec<Token>, String> {
+#[derive(Debug, Clone)]
+pub enum Error {
+    InvalidNumber(String),
+    InvalidOperator(String),
+    ConsecutiveOperators,
+    DivisionByZero,
+    TooManyOperators,
+    InvalidExpression,
+    EmptyExpression,
+}
+
+impl Display for Error {
+    // Overriding the Display trait to provide a user-friendly error message
+    // This trait is used to format the error messages when they are printed.
+    // The `fmt` method takes a mutable reference to a `Formatter` and returns a `Result`.
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::InvalidNumber(msg) => write!(f, "Invalid number: {}", msg),
+            Error::InvalidOperator(msg) => write!(f, "Invalid operator: {}", msg),
+            Error::DivisionByZero => write!(f, "Division by zero"),
+            Error::ConsecutiveOperators => write!(f, "Consecutive operators are not allowed"),
+            Error::TooManyOperators => write!(f, "Too many operators in the expression"),
+            Error::InvalidExpression => write!(f, "Invalid expression"),
+            Error::EmptyExpression => write!(f, "The expression cannot be empty"),
+        }
+    }
+}
+
+pub fn parse_expression(expression: Vec<&str>) -> Result<Vec<Token>, Error> {
     let mut tokens = Vec::new();
 
     for token in expression {
@@ -13,13 +43,13 @@ pub fn parse_expression(expression: Vec<&str>) -> Result<Vec<Token>, String> {
         } else if token.len() == 1 && "+-*/".contains(token) {
             tokens.push(Token::Operator(token.chars().next().unwrap()));
         } else {
-            return Err(format!("Invalid token: {}", token));
+            return Err(Error::InvalidOperator(token.to_string()));
         }
     }
 
     // Check if we have at least one number and one operator
     if tokens.is_empty() {
-        return Err("No valid tokens found in the expression".to_string());
+        return Err(Error::EmptyExpression);
     }
 
     Ok(tokens)
@@ -34,12 +64,24 @@ fn precedence(op: char) -> i32 {
     }
 }
 
-fn apply_operator(op: char, b: f64, a: f64) -> f64 {
+fn apply_operator(op: char, b: f64, a: f64) -> Result<f64, Error> {
     match op {
-        '+' => a + b,
-        '-' => a - b,
-        '*' => a * b,
-        '/' => b / a, // Note: order is important for division
+        '+' => {
+            Ok(a + b)
+        }
+        '-' => {
+            Ok(a - b)
+        }
+        '*' => {
+            Ok(a * b)
+        }
+        '/' => {
+            if b == 0.0 {
+                Err(Error::DivisionByZero)
+            } else {
+                Ok(a / b)
+            }
+        }
         _ => panic!("Unknown operator: {}", op),
     }
 }
@@ -74,7 +116,7 @@ fn to_rpn(tokens: &[Token]) -> Result<Vec<Token>, String> {
     Ok(output)
 }
 
-fn evaluate_rpn(tokens: &[Token]) -> Result<f64, String> {
+fn evaluate_rpn(tokens: &[Token]) -> Result<f64, Error> {
     let mut stack = Vec::new();
 
     for token in tokens {
@@ -82,18 +124,21 @@ fn evaluate_rpn(tokens: &[Token]) -> Result<f64, String> {
             Token::Number(num) => stack.push(*num),
             Token::Operator(op) => {
                 if stack.len() < 2 {
-                    return Err("Not enough operands for operator".to_string());
+                    return Err(Error::InvalidExpression);
                 }
-                let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
-                let result = apply_operator(*op, a, b);
-                stack.push(result);
+                let b = stack.pop().unwrap();
+
+                match apply_operator(*op, a, b) {
+                    Ok(result) => stack.push(result),
+                    Err(e) => return Err(e), // Propagate the error if it occurs
+                }
             }
         }
     }
 
     if stack.len() != 1 {
-        return Err("Too many operands left on the stack".to_string());
+        return Err(Error::TooManyOperators);
     }
 
     Ok(stack[0])
@@ -101,7 +146,10 @@ fn evaluate_rpn(tokens: &[Token]) -> Result<f64, String> {
 
 pub fn evaluate_expression(expression: &[Token]) -> Result<f64, String> {
     let rpn_tokens = to_rpn(expression)?; // Convert the expression to Reverse Polish Notation (RPN). The ? operator propagates errors. Propagating errors means that if an error occurs, it will be returned to the caller instead of panicking.
-    evaluate_rpn(&rpn_tokens)
+    match evaluate_rpn(&rpn_tokens) {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.to_string()), // Convert the Error enum to a String for user-friendly output
+    }
 }
 
 pub fn print_help_doc() {
