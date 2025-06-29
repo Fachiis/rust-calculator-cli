@@ -6,14 +6,14 @@ pub enum Token {
     Operator(char),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Error {
     InvalidNumber(String),
     InvalidOperator(String),
+    InvalidExpression(String),
     ConsecutiveOperators,
     DivisionByZero,
     TooManyOperators,
-    InvalidExpression,
     EmptyExpression,
 }
 
@@ -25,10 +25,10 @@ impl Display for Error {
         match self {
             Error::InvalidNumber(msg) => write!(f, "Invalid number: {}", msg),
             Error::InvalidOperator(msg) => write!(f, "Invalid operator: {}", msg),
+            Error::InvalidExpression(msg) => write!(f, "Invalid expression: {}", msg),
             Error::DivisionByZero => write!(f, "Division by zero"),
             Error::ConsecutiveOperators => write!(f, "Consecutive operators are not allowed"),
             Error::TooManyOperators => write!(f, "Too many operators in the expression"),
-            Error::InvalidExpression => write!(f, "Invalid expression"),
             Error::EmptyExpression => write!(f, "The expression cannot be empty"),
         }
     }
@@ -43,7 +43,7 @@ pub fn parse_expression(expression: Vec<&str>) -> Result<Vec<Token>, Error> {
         } else if token.len() == 1 && "+-*/".contains(token) {
             tokens.push(Token::Operator(token.chars().next().unwrap()));
         } else {
-            return Err(Error::InvalidOperator(token.to_string()));
+            return Err(Error::InvalidExpression(token.to_string()));
         }
     }
 
@@ -86,7 +86,7 @@ fn apply_operator(op: char, b: f64, a: f64) -> Result<f64, Error> {
     }
 }
 
-fn to_rpn(tokens: &[Token]) -> Result<Vec<Token>, String> {
+fn to_rpn(tokens: &[Token]) -> Result<Vec<Token>, Error> {
     let mut output = Vec::new();
     let mut operators = Vec::new();
 
@@ -124,7 +124,7 @@ fn evaluate_rpn(tokens: &[Token]) -> Result<f64, Error> {
             Token::Number(num) => stack.push(*num),
             Token::Operator(op) => {
                 if stack.len() < 2 {
-                    return Err(Error::InvalidExpression);
+                    return Err(Error::InvalidExpression("Not enough operands for operator".to_string()));
                 }
                 let a = stack.pop().unwrap();
                 let b = stack.pop().unwrap();
@@ -144,11 +144,11 @@ fn evaluate_rpn(tokens: &[Token]) -> Result<f64, Error> {
     Ok(stack[0])
 }
 
-pub fn evaluate_expression(expression: &[Token]) -> Result<f64, String> {
+pub fn evaluate_expression(expression: &[Token]) -> Result<f64, Error> {
     let rpn_tokens = to_rpn(expression)?; // Convert the expression to Reverse Polish Notation (RPN). The ? operator propagates errors. Propagating errors means that if an error occurs, it will be returned to the caller instead of panicking.
     match evaluate_rpn(&rpn_tokens) {
         Ok(result) => Ok(result),
-        Err(e) => Err(e.to_string()), // Convert the Error enum to a String for user-friendly output
+        Err(e) => Err(e), // Convert the Error enum to a String for user-friendly output
     }
 }
 
@@ -157,4 +157,47 @@ pub fn print_help_doc() {
     println!(" Enter an expression to evaluate it (e.g., 2 + 2)");
     println!(" Type 'quit' or 'q' to exit the calculator");
     println!(" Type 'help' to see this help message");
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_rpn() {
+        let tokens = parse_expression(vec!["2", "+", "3", "*", "4"]).unwrap();
+        let rpn = to_rpn(&tokens).unwrap();
+        assert_eq!(
+            rpn,
+            vec![
+                Token::Number(2.0),
+                Token::Number(3.0),
+                Token::Number(4.0),
+                Token::Operator('*'),
+                Token::Operator('+')
+            ]
+        );
+    }
+
+    #[test]
+    fn test_apply_operator() {
+        assert_eq!(apply_operator('+', 2.0, 3.0), Ok(5.0));
+        assert_eq!(apply_operator('-', 5.0, 3.0), Ok(-2.0));
+        assert_eq!(apply_operator('*', 2.0, 3.0), Ok(6.0));
+        assert_eq!(apply_operator('/', 2.0, 6.0), Ok(3.0));
+        assert!(matches!(
+            apply_operator('/', 0.0, 4.0),
+            Err(Error::DivisionByZero)
+        ));
+    }
+
+    #[test]
+    fn test_precedence() {
+        assert_eq!(precedence('+'), 1);
+        assert_eq!(precedence('-'), 1);
+        assert_eq!(precedence('*'), 2);
+        assert_eq!(precedence('/'), 2);
+        assert_eq!(precedence('%'), 0);
+    }
 }
