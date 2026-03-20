@@ -15,7 +15,7 @@ fn main() {
 
         match lines {
             Ok(_) => {
-                let args: Vec<&str> = user_input.trim().split_whitespace().collect();
+                let args: Vec<&str> = user_input.split_whitespace().collect();
 
                 if args.is_empty() {
                     continue;
@@ -30,21 +30,19 @@ fn main() {
                         print_help_doc();
                     }
                     _ => match parse_expression(args.clone()) {
-                        Ok(tokens) => {
-                            match evaluate_expression(&*tokens) {
-                                Ok(result) => {
-                                    println!("Result: {}", result);
-                                }
-                                Err(e) => {
-                                    println!("Error evaluating expression: {}", e);
-                                }
+                        Ok(tokens) => match evaluate_expression(&tokens) {
+                            Ok(result) => {
+                                println!("Result: {}", result);
                             }
-                        }
+                            Err(e) => {
+                                println!("Error evaluating expression: {}", e);
+                            }
+                        },
                         Err(e) => {
                             eprintln!("{}", e);
                             continue;
                         }
-                    }
+                    },
                 }
             }
             Err(e) => {

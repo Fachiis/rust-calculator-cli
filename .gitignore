@@ -1,2 +1,12 @@
 /target
 /.idea
+.vscode/
+*.rs.bk
+*.rlib
+*.prof*
+*.log
+.env*
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp

@@ -53,3 +53,90 @@ fn test_division_by_zero() {
     let result = evaluate_expression(&tokens);
     assert!(matches!(result, Err(Error::DivisionByZero)));
 }
+
+#[test]
+fn test_bracket_evaluation() {
+    let input = vec!["(", "2", "+", "3", ")", "*", "4"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 20.0);
+
+    let input = vec!["10", "/", "(", "2", "+", "3", ")"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 2.0);
+
+    let input = vec!["(", "(", "1", "+", "2", ")", "*", "3", ")"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 9.0);
+}
+
+#[test]
+fn test_bracket_errors() {
+    let input = vec!["(", "2", "+", "3"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens);
+    assert!(matches!(result, Err(Error::MismatchedBracket)));
+
+    let input = vec!["2", "+", "3", ")"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens);
+    assert!(matches!(result, Err(Error::MismatchedBracket)));
+
+    let input = vec!["(", ")"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens);
+    assert!(matches!(result, Err(Error::EmptyBrackets)));
+}
+
+#[test]
+fn test_exponentiation() {
+    let input = vec!["2", "^", "3"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 8.0);
+
+    let input = vec!["3", "+", "2", "^", "3"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 11.0);
+
+    let input = vec!["2", "^", "3", "^", "2"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 512.0);
+}
+
+#[test]
+fn test_exponentiation_edge_cases() {
+    let input = vec!["0", "^", "0"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 1.0);
+
+    let input = vec!["999999", "^", "999999"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens);
+    assert!(matches!(result, Err(Error::NotFinite)));
+}
+
+#[test]
+fn test_combined_bodmas_expressions() {
+    let input = vec!["(", "2", "+", "3", ")", "^", "2"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 25.0);
+
+    let input = vec!["2", "^", "(", "1", "+", "2", ")", "*", "3"];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 24.0);
+
+    let input = vec![
+        "(", "3", "+", "2", ")", "*", "(", "2", "^", "3", "-", "1", ")",
+    ];
+    let tokens = parse_expression(input).unwrap();
+    let result = evaluate_expression(&tokens).unwrap();
+    assert_eq!(result, 35.0);
+}
